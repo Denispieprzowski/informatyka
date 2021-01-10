@@ -1,0 +1,93 @@
+# Kurierzy
+from datetime import datetime, timedelta
+
+def wczytaj_pliki():  # Wczytuje dane
+    with open("personel.txt", "r", encoding="utf-8") as plik:
+        personel = plik.readlines()
+
+    with open("zlecenia.txt", "r", encoding="utf-8") as plik:
+        zlecenia = plik.readlines()
+
+    personel = [osoba.strip() for osoba in personel if len(osoba) > 3]
+    zlecenia = [zlecenie.strip() for zlecenie in zlecenia if len(zlecenie) > 3]
+    print("\nLiczba kurierów: {}, liczba zleceń: {}.\n".format(len(personel), len(zlecenia)))
+
+    return personel, zlecenia
+
+def zapisz_plan_do_pliku(plan):  # Zapisuje dane
+    najdluszy_czas = datetime.strptime("00:00", '%H:%M')
+    with open("plan.txt", "w", encoding="utf-8") as plik:
+        for k, v in plan.items():
+            czas = datetime.strptime(v["laczny_czas_pracy"], '%H:%M')
+            if czas > najdluszy_czas:
+                najdluszy_czas = czas
+            zlecenia = " ".join(v["zlecenia"])
+            plik.write("{:<20}  {}  {}\n".format(k, czas.strftime('%H:%M'), zlecenia))
+
+    print("\n\nNajdłuższy czas to: {}.\n".format(najdluszy_czas.strftime('%H:%M')))
+    if najdluszy_czas.hour > 8 or (najdluszy_czas.hour == 8 and najdluszy_czas.minute > 0):
+        print("Najdłuższy czas pracy przekracza 8 godzin, kurierowi należą się nadgodziny!\n\n")
+
+def przydziel_zlecenia(personel, zlecenia):  # Przydziela zlecenia kurierom
+    zaplanowane_zlecenia = {}
+
+    def dodaj_zlecenie(osoba, zlecenie, czas_na_wykonanie):  # Dodaje pojedyncze zlecenie
+        if zaplanowane_zlecenia[osoba]["laczny_czas_pracy"] == "00:00":
+            zaplanowane_zlecenia[osoba]["laczny_czas_pracy"] = czas_na_wykonanie
+        else:
+            godziny, minuty = czas_na_wykonanie.split(":")
+            godziny = int(godziny)
+            minuty = int(minuty)
+            lcp = datetime.strptime(zaplanowane_zlecenia[osoba]["laczny_czas_pracy"], '%H:%M')
+            lcp += timedelta(hours=godziny, minutes=minuty)
+            zaplanowane_zlecenia[osoba]["laczny_czas_pracy"] = datetime.strftime(lcp, "%H:%M")
+        zaplanowane_zlecenia[osoba]["zlecenia"].append(zlecenie)
+
+    def kto_ma_najmniej():  # Który kurier ma najmniej zleceń ?
+        ile_zlecen = 1_000_000
+
+        for osoba, zadania in zaplanowane_zlecenia.items():
+            zlecenia = zadania.get("zlecenia")
+            liczba_zlecen = len(zlecenia)
+            if liczba_zlecen < ile_zlecen:
+                ile_zlecen = liczba_zlecen
+
+        for osoba, zadania in zaplanowane_zlecenia.items():
+            zlecenia = zadania.get("zlecenia")
+            if len(zlecenia) == ile_zlecen:
+                return osoba
+        return None
+
+    for osoba in personel:
+        zaplanowane_zlecenia[osoba] = {"laczny_czas_pracy" : "00:00", "zlecenia" : [] }
+
+    for zlecenie in zlecenia:
+        kurier = kto_ma_najmniej()
+        symbol, czas_na_wykonanie = zlecenie.split()
+        if kurier:
+            dodaj_zlecenie(kurier, symbol.strip(), czas_na_wykonanie.strip())
+
+    return zaplanowane_zlecenia
+
+
+personel, zlecenia = wczytaj_pliki()
+plan = przydziel_zlecenia(personel, zlecenia)
+zapisz_plan_do_pliku(plan)
+
+Jan Kowalski
+Anna Nowak
+Zenon Malinowski
+
+323213-123-12 2:30
+344334-223-12 3:50
+
+32312-463-12  4:00
+3242-991-12   1:20
+AX56452-23    2:10
+3242-991-12   1:20
+AX56452-23    1:10
+
+32312-463-12  3:10
+3242-991-12   3:40
+AX56452-23    2:50
+
